@@ -43,6 +43,7 @@
               :key="action"
               class="link"
               type="button"
+              :disabled="actionPending"
               @click="runAction(action, row)"
             >
               {{ action }}
@@ -57,6 +58,7 @@
 
     <footer class="page-foot">
       <span>共 {{ total }} 条通风系统记录</span>
+      <span v-if="noticeMessage" class="notice-text">{{ noticeMessage }}</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
   </section>
@@ -65,9 +67,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 
-import { request } from '@/api/client'
+import { fetchList, postAction } from '@/api/client'
 
-type Row = Record<string, string | number | null>
+type Row = Record<string, string | number | null> & { id: number }
 
 const ENDPOINT = '/api/ventilation'
 const columns = ["设备编号", "设备类型", "额定风量", "运行频率", "电流值", "所属巷道", "上次检修", "设备状态"]
@@ -78,6 +80,8 @@ const stats = [{"label": "正常设备", "value": 0}, {"label": "降频设备", 
 const rows = ref<Row[]>([])
 const total = ref(0)
 const errorMessage = ref('')
+const noticeMessage = ref('')
+const actionPending = ref(false)
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
 
@@ -95,32 +99,27 @@ function openCreate() {
 }
 
 async function runAction(action: string, row: Row) {
+  if (actionPending.value) return
   errorMessage.value = ''
+  noticeMessage.value = ''
+  actionPending.value = true
   try {
-    const response = await request(`${ENDPOINT}/${row.id}/actions`, {
-      method: 'POST',
-      body: JSON.stringify({ action }),
-    })
-    if (!response.ok) {
-      throw new Error('通风系统动作未生效，请稍后重试')
-    }
+    const receipt = await postAction(ENDPOINT, row.id, action)
+    noticeMessage.value = receipt.message
     await reload()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '通风系统操作失败'
+  } finally {
+    actionPending.value = false
   }
 }
 
 async function reload() {
   errorMessage.value = ''
-  const query = new URLSearchParams(filters.value as Record<string, string>).toString()
   try {
-    const response = await request(`${ENDPOINT}?${query}`)
-    if (!response.ok) {
-      throw new Error('通风设备列表读取失败')
-    }
-    const payload = await response.json()
-    rows.value = payload.items ?? []
-    total.value = payload.total ?? rows.value.length
+    const payload = await fetchList<Row>(ENDPOINT, filters.value)
+    rows.value = payload.items
+    total.value = payload.total
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '通风系统列表读取失败'
   }

@@ -43,6 +43,7 @@
               :key="action"
               class="link"
               type="button"
+              :disabled="actionPending"
               @click="runAction(action, row)"
             >
               {{ action }}
@@ -57,6 +58,7 @@
 
     <footer class="page-foot">
       <span>共 {{ total }} 条安全培训记录</span>
+      <span v-if="noticeMessage" class="notice-text">{{ noticeMessage }}</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
   </section>
@@ -65,9 +67,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 
-import { request } from '@/api/client'
+import { fetchList, postAction } from '@/api/client'
 
-type Row = Record<string, string | number | null>
+type Row = Record<string, string | number | null> & { id: number }
 
 const ENDPOINT = '/api/training'
 const columns = ["培训编号", "培训主题", "培训对象", "培训日期", "培训讲师", "考核方式", "考核结果", "培训状态"]
@@ -78,6 +80,8 @@ const stats = [{"label": "待培训人数", "value": 0}, {"label": "已考核人
 const rows = ref<Row[]>([])
 const total = ref(0)
 const errorMessage = ref('')
+const noticeMessage = ref('')
+const actionPending = ref(false)
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
 
@@ -95,32 +99,27 @@ function openCreate() {
 }
 
 async function runAction(action: string, row: Row) {
+  if (actionPending.value) return
   errorMessage.value = ''
+  noticeMessage.value = ''
+  actionPending.value = true
   try {
-    const response = await request(`${ENDPOINT}/${row.id}/actions`, {
-      method: 'POST',
-      body: JSON.stringify({ action }),
-    })
-    if (!response.ok) {
-      throw new Error('安全培训动作未生效，请稍后重试')
-    }
+    const receipt = await postAction(ENDPOINT, row.id, action)
+    noticeMessage.value = receipt.message
     await reload()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '安全培训操作失败'
+  } finally {
+    actionPending.value = false
   }
 }
 
 async function reload() {
   errorMessage.value = ''
-  const query = new URLSearchParams(filters.value as Record<string, string>).toString()
   try {
-    const response = await request(`${ENDPOINT}?${query}`)
-    if (!response.ok) {
-      throw new Error('培训记录列表读取失败')
-    }
-    const payload = await response.json()
-    rows.value = payload.items ?? []
-    total.value = payload.total ?? rows.value.length
+    const payload = await fetchList<Row>(ENDPOINT, filters.value)
+    rows.value = payload.items
+    total.value = payload.total
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '安全培训列表读取失败'
   }

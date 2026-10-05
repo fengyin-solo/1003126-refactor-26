@@ -74,5 +74,11 @@ npm run dev
 
 - 每个模块的前端页面在 `frontend/src/views/<模块>/index.vue`，后端接口在
   `backend/app/routers/<模块>.py`，业务规则在 `backend/app/services/<模块>.py`。
-- 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
+- 列表接口统一返回 `{ items, total, page, size }`。
+- 动作接口统一收 `{ action }`（动作名放在请求体最外层），统一返回
+  `{ ok, message, entry, repeated }`；`entry` 是动作后的整条记录，
+  `repeated=true` 表示同一动作重复提交、未重复生效。
+- 动作链路（请求、回执解析、列表重新拉取）前端走 `src/api/client.ts` 的
+  `postAction`/`fetchList`，后端走 `app/routers/common.py` 与
+  `app/services/common.py`，各模块不各写一套。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。

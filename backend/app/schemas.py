@@ -16,15 +16,25 @@ class PageResult(BaseModel, Generic[T]):
 
 
 class ActionResult(BaseModel):
+    """动作回执的统一结构：所有模块的动作接口都按这一份结构返回。"""
+
     ok: bool
     message: str
     entry: dict[str, Any] | None = None
+    repeated: bool = False
 
 
 class EntryPayload(BaseModel):
     """登记或修改一条业务记录时提交的字段集合。"""
 
     values: dict[str, Any] = Field(default_factory=dict)
+    remark: str | None = None
+
+
+class ActionPayload(BaseModel):
+    """对单条记录执行动作时提交的载荷：动作名放在请求体最外层。"""
+
+    action: str = ""
     remark: str | None = None
 
 

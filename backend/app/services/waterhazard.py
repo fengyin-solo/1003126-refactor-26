@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.common import run_action_flow
 from app.store import store
 
 MODULE = "waterhazard"
@@ -46,16 +47,15 @@ class WaterhazardService:
         rows.append(entry)
         return entry, []
 
-    def run_action(self, entry_id: int, action: str) -> tuple[dict[str, Any] | None, str]:
-        entry = store.find(MODULE, entry_id)
-        if entry is None:
-            return None, f"水文监测 {entry_id} 不存在或已归档"
-        if action not in ACTION_RULES:
-            return None, f"动作「{action}」不属于水害防治可执行范围"
-        target = ACTION_RULES[action]
-        if target not in STATUS_ORDER:
-            return None, f"目标状态「{target}」不在允许的状态序列里"
-        entry["status"] = target
-        entry["pending"] = target != STATUS_ORDER[-1]
-        entry["abnormal"] = action in NEGATIVE_ACTIONS
-        return entry, f"水文监测已{action}"
+    def run_action(self, entry_id: int, action: str) -> tuple[dict[str, Any] | None, str, bool]:
+        """执行动作：流转逻辑走共用流程，本模块只提供动作表与叫法。"""
+        return run_action_flow(
+            module=MODULE,
+            entry_id=entry_id,
+            action=action,
+            rules=ACTION_RULES,
+            status_order=STATUS_ORDER,
+            negative_actions=NEGATIVE_ACTIONS,
+            entry_label="水文监测",
+            module_label="水害防治",
+        )

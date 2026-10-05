@@ -5,7 +5,8 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.schemas import ActionResult, EntryPayload, PageResult
+from app.routers.common import run_action_endpoint
+from app.schemas import ActionPayload, ActionResult, EntryPayload, PageResult
 from app.services.emergencydrill import EmergencydrillService
 
 router = APIRouter(prefix="/api/emergencydrill", tags=["应急演练"])
@@ -49,13 +50,9 @@ def create_entry(payload: EntryPayload) -> ActionResult:
 
 
 @router.post("/{entry_id}/actions", response_model=ActionResult)
-def run_action(entry_id: int, payload: EntryPayload) -> ActionResult:
+def run_action(entry_id: int, payload: ActionPayload) -> ActionResult:
     """对单条演练记录执行组织演练、完成演练、复盘总结；不允许的动作会被拦下并说明原因。"""
-    action = str(payload.values.get("action") or "").strip()
-    entry, message = service.run_action(entry_id, action)
-    if entry is None:
-        return ActionResult(ok=False, message=message)
-    return ActionResult(ok=True, message=message, entry=entry)
+    return run_action_endpoint(service, entry_id, payload)
 
 
 @router.get("/export")
