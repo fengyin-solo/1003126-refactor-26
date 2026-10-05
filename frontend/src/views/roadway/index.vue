@@ -63,11 +63,9 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 
-import { request } from '@/api/client'
-
-type Row = Record<string, string | number | null>
+import { useEntryPage } from '@/api/entries'
 
 const ENDPOINT = '/api/roadway'
 const columns = ["任务编号", "维修巷道", "维修内容", "施工队伍", "开工日期", "竣工日期", "验收人员", "任务状态"]
@@ -75,16 +73,11 @@ const actions = ["派发任务", "开始施工", "验收竣工"]
 const statuses = ["待派发", "施工中", "待验收", "已竣工"]
 const stats = [{"label": "待派发任务", "value": 0}, {"label": "施工中任务", "value": 0}, {"label": "待验收任务", "value": 0}]
 
-const rows = ref<Row[]>([])
-const total = ref(0)
-const errorMessage = ref('')
-const filters = ref<Record<string, string>>({})
+const { rows, total, errorMessage, filters, reload, resetFilters, runAction } = useEntryPage({
+  endpoint: ENDPOINT,
+  label: '巷道维修',
+})
 const filterFields = columns.slice(0, 3)
-
-function resetFilters() {
-  filters.value = {}
-  void reload()
-}
 
 function exportRows() {
   window.open(`${ENDPOINT}/export`, '_blank')
@@ -92,38 +85,6 @@ function exportRows() {
 
 function openCreate() {
   errorMessage.value = '维修任务登记入口尚未接入审批流'
-}
-
-async function runAction(action: string, row: Row) {
-  errorMessage.value = ''
-  try {
-    const response = await request(`${ENDPOINT}/${row.id}/actions`, {
-      method: 'POST',
-      body: JSON.stringify({ action }),
-    })
-    if (!response.ok) {
-      throw new Error('巷道维修动作未生效，请稍后重试')
-    }
-    await reload()
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '巷道维修操作失败'
-  }
-}
-
-async function reload() {
-  errorMessage.value = ''
-  const query = new URLSearchParams(filters.value as Record<string, string>).toString()
-  try {
-    const response = await request(`${ENDPOINT}?${query}`)
-    if (!response.ok) {
-      throw new Error('维修任务列表读取失败')
-    }
-    const payload = await response.json()
-    rows.value = payload.items ?? []
-    total.value = payload.total ?? rows.value.length
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '巷道维修列表读取失败'
-  }
 }
 
 onMounted(reload)

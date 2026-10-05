@@ -63,11 +63,9 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 
-import { request } from '@/api/client'
-
-type Row = Record<string, string | number | null>
+import { useEntryPage } from '@/api/entries'
 
 const ENDPOINT = '/api/rockburst'
 const columns = ["监测编号", "所在区域", "微震能量", "微震频次", "应力值", "预警等级", "处置措施", "监测状态"]
@@ -75,16 +73,11 @@ const actions = ["应力预警", "解危处置", "解危确认"]
 const statuses = ["正常", "应力集中", "预警", "已解危"]
 const stats = [{"label": "正常区域", "value": 0}, {"label": "应力集中区", "value": 0}, {"label": "预警区域", "value": 0}]
 
-const rows = ref<Row[]>([])
-const total = ref(0)
-const errorMessage = ref('')
-const filters = ref<Record<string, string>>({})
+const { rows, total, errorMessage, filters, reload, resetFilters, runAction } = useEntryPage({
+  endpoint: ENDPOINT,
+  label: '冲击地压',
+})
 const filterFields = columns.slice(0, 3)
-
-function resetFilters() {
-  filters.value = {}
-  void reload()
-}
 
 function exportRows() {
   window.open(`${ENDPOINT}/export`, '_blank')
@@ -92,38 +85,6 @@ function exportRows() {
 
 function openCreate() {
   errorMessage.value = '微震监测登记入口尚未接入审批流'
-}
-
-async function runAction(action: string, row: Row) {
-  errorMessage.value = ''
-  try {
-    const response = await request(`${ENDPOINT}/${row.id}/actions`, {
-      method: 'POST',
-      body: JSON.stringify({ action }),
-    })
-    if (!response.ok) {
-      throw new Error('冲击地压动作未生效，请稍后重试')
-    }
-    await reload()
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '冲击地压操作失败'
-  }
-}
-
-async function reload() {
-  errorMessage.value = ''
-  const query = new URLSearchParams(filters.value as Record<string, string>).toString()
-  try {
-    const response = await request(`${ENDPOINT}?${query}`)
-    if (!response.ok) {
-      throw new Error('微震监测列表读取失败')
-    }
-    const payload = await response.json()
-    rows.value = payload.items ?? []
-    total.value = payload.total ?? rows.value.length
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '冲击地压列表读取失败'
-  }
 }
 
 onMounted(reload)

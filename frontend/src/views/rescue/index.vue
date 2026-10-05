@@ -63,11 +63,9 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 
-import { request } from '@/api/client'
-
-type Row = Record<string, string | number | null>
+import { useEntryPage } from '@/api/entries'
 
 const ENDPOINT = '/api/rescue'
 const columns = ["装备编号", "装备名称", "装备类别", "存放地点", "保有数量", "上次检查", "下次检查日", "装备状态"]
@@ -75,16 +73,11 @@ const actions = ["登记不足", "补充装备", "申请报废"]
 const statuses = ["合格可用", "需补充", "已过期", "已报废"]
 const stats = [{"label": "合格装备", "value": 0}, {"label": "需补充装备", "value": 0}, {"label": "过期装备", "value": 0}]
 
-const rows = ref<Row[]>([])
-const total = ref(0)
-const errorMessage = ref('')
-const filters = ref<Record<string, string>>({})
+const { rows, total, errorMessage, filters, reload, resetFilters, runAction } = useEntryPage({
+  endpoint: ENDPOINT,
+  label: '应急救援',
+})
 const filterFields = columns.slice(0, 3)
-
-function resetFilters() {
-  filters.value = {}
-  void reload()
-}
 
 function exportRows() {
   window.open(`${ENDPOINT}/export`, '_blank')
@@ -92,38 +85,6 @@ function exportRows() {
 
 function openCreate() {
   errorMessage.value = '救援装备登记入口尚未接入审批流'
-}
-
-async function runAction(action: string, row: Row) {
-  errorMessage.value = ''
-  try {
-    const response = await request(`${ENDPOINT}/${row.id}/actions`, {
-      method: 'POST',
-      body: JSON.stringify({ action }),
-    })
-    if (!response.ok) {
-      throw new Error('应急救援动作未生效，请稍后重试')
-    }
-    await reload()
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '应急救援操作失败'
-  }
-}
-
-async function reload() {
-  errorMessage.value = ''
-  const query = new URLSearchParams(filters.value as Record<string, string>).toString()
-  try {
-    const response = await request(`${ENDPOINT}?${query}`)
-    if (!response.ok) {
-      throw new Error('救援装备列表读取失败')
-    }
-    const payload = await response.json()
-    rows.value = payload.items ?? []
-    total.value = payload.total ?? rows.value.length
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '应急救援列表读取失败'
-  }
 }
 
 onMounted(reload)

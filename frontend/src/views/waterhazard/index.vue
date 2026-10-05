@@ -63,11 +63,9 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 
-import { request } from '@/api/client'
-
-type Row = Record<string, string | number | null>
+import { useEntryPage } from '@/api/entries'
 
 const ENDPOINT = '/api/waterhazard'
 const columns = ["监测编号", "所在区域", "涌水量", "水压", "水温", "水质类型", "排水能力", "水害状态"]
@@ -75,16 +73,11 @@ const actions = ["增加监测", "突水预警", "控制确认"]
 const statuses = ["正常", "涌水增加", "突水危险", "已控制"]
 const stats = [{"label": "正常区域", "value": 0}, {"label": "涌水增加区域", "value": 0}, {"label": "突水危险区域", "value": 0}]
 
-const rows = ref<Row[]>([])
-const total = ref(0)
-const errorMessage = ref('')
-const filters = ref<Record<string, string>>({})
+const { rows, total, errorMessage, filters, reload, resetFilters, runAction } = useEntryPage({
+  endpoint: ENDPOINT,
+  label: '水害防治',
+})
 const filterFields = columns.slice(0, 3)
-
-function resetFilters() {
-  filters.value = {}
-  void reload()
-}
 
 function exportRows() {
   window.open(`${ENDPOINT}/export`, '_blank')
@@ -92,38 +85,6 @@ function exportRows() {
 
 function openCreate() {
   errorMessage.value = '水文监测登记入口尚未接入审批流'
-}
-
-async function runAction(action: string, row: Row) {
-  errorMessage.value = ''
-  try {
-    const response = await request(`${ENDPOINT}/${row.id}/actions`, {
-      method: 'POST',
-      body: JSON.stringify({ action }),
-    })
-    if (!response.ok) {
-      throw new Error('水害防治动作未生效，请稍后重试')
-    }
-    await reload()
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '水害防治操作失败'
-  }
-}
-
-async function reload() {
-  errorMessage.value = ''
-  const query = new URLSearchParams(filters.value as Record<string, string>).toString()
-  try {
-    const response = await request(`${ENDPOINT}?${query}`)
-    if (!response.ok) {
-      throw new Error('水文监测列表读取失败')
-    }
-    const payload = await response.json()
-    rows.value = payload.items ?? []
-    total.value = payload.total ?? rows.value.length
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '水害防治列表读取失败'
-  }
 }
 
 onMounted(reload)

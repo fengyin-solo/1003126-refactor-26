@@ -63,11 +63,9 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 
-import { request } from '@/api/client'
-
-type Row = Record<string, string | number | null>
+import { useEntryPage } from '@/api/entries'
 
 const ENDPOINT = '/api/minearea'
 const columns = ["矿区编号", "矿区名称", "开采矿种", "核定产能", "开采方式", "服务年限", "安全等级", "矿区状态"]
@@ -75,16 +73,11 @@ const actions = ["停产整顿", "恢复生产", "闭坑登记"]
 const statuses = ["正常生产", "停产整顿", "检修中", "已闭坑"]
 const stats = [{"label": "正常矿区", "value": 0}, {"label": "整顿矿区", "value": 0}, {"label": "闭坑矿区", "value": 0}]
 
-const rows = ref<Row[]>([])
-const total = ref(0)
-const errorMessage = ref('')
-const filters = ref<Record<string, string>>({})
+const { rows, total, errorMessage, filters, reload, resetFilters, runAction } = useEntryPage({
+  endpoint: ENDPOINT,
+  label: '矿区台账',
+})
 const filterFields = columns.slice(0, 3)
-
-function resetFilters() {
-  filters.value = {}
-  void reload()
-}
 
 function exportRows() {
   window.open(`${ENDPOINT}/export`, '_blank')
@@ -92,38 +85,6 @@ function exportRows() {
 
 function openCreate() {
   errorMessage.value = '矿区登记入口尚未接入审批流'
-}
-
-async function runAction(action: string, row: Row) {
-  errorMessage.value = ''
-  try {
-    const response = await request(`${ENDPOINT}/${row.id}/actions`, {
-      method: 'POST',
-      body: JSON.stringify({ action }),
-    })
-    if (!response.ok) {
-      throw new Error('矿区台账动作未生效，请稍后重试')
-    }
-    await reload()
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '矿区台账操作失败'
-  }
-}
-
-async function reload() {
-  errorMessage.value = ''
-  const query = new URLSearchParams(filters.value as Record<string, string>).toString()
-  try {
-    const response = await request(`${ENDPOINT}?${query}`)
-    if (!response.ok) {
-      throw new Error('矿区列表读取失败')
-    }
-    const payload = await response.json()
-    rows.value = payload.items ?? []
-    total.value = payload.total ?? rows.value.length
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '矿区台账列表读取失败'
-  }
 }
 
 onMounted(reload)

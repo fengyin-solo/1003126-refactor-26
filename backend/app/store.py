@@ -14,6 +14,8 @@ class Store:
         self._tables: dict[str, list[dict[str, Any]]] = {
             name: [dict(row) for row in rows] for name, rows in SEED_ROWS.items()
         }
+        # 动作幂等台账：request_id -> 当时的回执，重复提交按原样回放，不覆盖旧记录
+        self._action_receipts: dict[str, dict[str, Any]] = {}
 
     def module_names(self) -> list[str]:
         return sorted(self._tables)
@@ -26,6 +28,15 @@ class Store:
             if int(row.get("id", 0)) == entry_id:
                 return row
         return None
+
+    def find_action_receipt(self, request_id: str) -> dict[str, Any] | None:
+        """按幂等键查历史回执；查到的是当时落账的结果，原样返回。"""
+        recorded = self._action_receipts.get(request_id)
+        return dict(recorded) if recorded is not None else None
+
+    def record_action_receipt(self, request_id: str, receipt: dict[str, Any]) -> None:
+        """把本次动作回执落账；同一幂等键已有时保留旧记录，不覆盖。"""
+        self._action_receipts.setdefault(request_id, receipt)
 
     def overview(self) -> dict[str, object]:
         modules: list[dict[str, object]] = []

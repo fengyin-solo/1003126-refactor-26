@@ -28,6 +28,37 @@ class EntryPayload(BaseModel):
     remark: str | None = None
 
 
+class ActionPayload(BaseModel):
+    """执行动作时提交的载荷：动作名与幂等键统一放在请求体最外层。
+
+    旧调用方可能把动作名塞在 values 里，解析时兜底兼容；新链路一律走最外层字段。
+    """
+
+    action: str | None = None
+    request_id: str | None = None
+    values: dict[str, Any] = Field(default_factory=dict)
+    remark: str | None = None
+
+    def action_name(self) -> str:
+        """取出动作名：优先最外层字段，缺省时回退到 values，保证旧调用不静默失败。"""
+        return str(self.action or self.values.get("action") or "").strip()
+
+
+class ActionReceipt(BaseModel):
+    """动作回执：所有模块的动作接口都按这一份结构返回执行结果。
+
+    status 与 entry 同时给出：只关心状态的调用方读 status，需要整条记录的读 entry。
+    """
+
+    ok: bool
+    action: str
+    message: str
+    status: str | None = None
+    entry: dict[str, Any] | None = None
+    request_id: str | None = None
+    replayed: bool = False
+
+
 
 class MineareaEntry(BaseModel):
     """矿区明细结构。"""

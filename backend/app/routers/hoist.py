@@ -5,7 +5,8 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.schemas import ActionResult, EntryPayload, PageResult
+from app.schemas import ActionPayload, ActionReceipt, ActionResult, EntryPayload, PageResult
+from app.services.actions import run_entry_action
 from app.services.hoist import HoistService
 
 router = APIRouter(prefix="/api/hoist", tags=["提升系统"])
@@ -48,14 +49,10 @@ def create_entry(payload: EntryPayload) -> ActionResult:
     return ActionResult(ok=True, message="提升机已登记", entry=entry)
 
 
-@router.post("/{entry_id}/actions", response_model=ActionResult)
-def run_action(entry_id: int, payload: EntryPayload) -> ActionResult:
+@router.post("/{entry_id}/actions", response_model=ActionReceipt)
+def run_action(entry_id: int, payload: ActionPayload) -> ActionReceipt:
     """对单条提升机执行磨损预警、制动检修、探伤检测；不允许的动作会被拦下并说明原因。"""
-    action = str(payload.values.get("action") or "").strip()
-    entry, message = service.run_action(entry_id, action)
-    if entry is None:
-        return ActionResult(ok=False, message=message)
-    return ActionResult(ok=True, message=message, entry=entry)
+    return run_entry_action(service, entry_id, payload)
 
 
 @router.get("/export")
